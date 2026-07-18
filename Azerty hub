@@ -1,5 +1,6 @@
 -- Azerty Hub
 -- again ty mishka for the ui
+-- Layout framework adapted from MishkaHub base structure
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -10,17 +11,13 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 
--- Script Execution Safety Check & Cleanup
+-- Script Execution Safety Check
 if _G.AzertyConnections then
     for _, conn in ipairs(_G.AzertyConnections) do
         pcall(function() conn:Disconnect() end)
     end
 end
 _G.AzertyConnections = {}
-
-if _G.AzertyFOVCircle then
-    pcall(function() _G.AzertyFOVCircle:Remove() end)
-end
 
 local function registerConnection(conn)
     table.insert(_G.AzertyConnections, conn)
@@ -29,15 +26,6 @@ end
 
 local scriptId = HttpService:GenerateGUID(false)
 _G.AzertyScriptId = scriptId
-
--- Initialize Global Engine Configuration Environment
-getgenv().KnifeConfig = {
-    Enabled = false,
-    HitPart = "Head",
-    FOV = 150,
-    HitChance = 100,
-    Visible = false
-}
 
 -- UI Parent Targeting
 local targetParent = nil
@@ -58,14 +46,7 @@ local settings = {
     sampleToggle = false,
     sampleSlider = 50,
     sampleDropdown = "Option 1",
-    sampleKeybind = Enum.KeyCode.E,
-    
-    -- Integrated Engine Configurations
-    knifeEnabled = false,
-    knifeFOV = 150,
-    knifeHitChance = 100,
-    knifeHitPart = "Head",
-    knifeVisible = false
+    sampleKeybind = Enum.KeyCode.E
 }
 
 -- UI Theme Palette
@@ -311,10 +292,6 @@ closeBtn.MouseLeave:Connect(function()
 end)
 closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
-    if _G.AzertyFOVCircle then pcall(function() _G.AzertyFOVCircle:Remove() end) end
-    if _G.AzertyConnections then
-        for _, conn in ipairs(_G.AzertyConnections) do pcall(function() conn:Disconnect() end) end
-    end
 end)
 
 -- Dragging Logic
@@ -858,112 +835,17 @@ local function createKeybind(parent, text, configKey, callback)
     end))
 end
 
--- ====================================================================
--- SILENT AIM ENHANCEMENT ENGINE BACKGROUND CORE
--- ====================================================================
-task.spawn(function()
-    local success, err = pcall(function()
-        local phem5 = require(LocalPlayer.PlayerScripts:WaitForChild("Controllers"):WaitForChild("Combat"):WaitForChild("KnifeController"))
-
-        local function getClosestPlayerToCursor()
-            local targetPlayer = nil
-            local maxDistance = getgenv().KnifeConfig.FOV
-            local centerScreen = Camera.ViewportSize / 2
-            
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                    local targetPart = player.Character:FindFirstChild(getgenv().KnifeConfig.HitPart)
-                    if targetPart then
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-                        if onScreen then
-                            local mouseDistance = (Vector2.new(screenPos.X, screenPos.Y) - centerScreen).Magnitude
-                            if mouseDistance < maxDistance then
-                                targetPlayer = player
-                                maxDistance = mouseDistance
-                            end
-                        end
-                    end
-                end
-            end
-            return targetPlayer
-        end
-
-        local oldGetThrowDirection = phem5._GetThrowDirection
-        phem5._GetThrowDirection = function(self, originPart)
-            if getgenv().KnifeConfig.Enabled then
-                if math.random(1, 100) <= getgenv().KnifeConfig.HitChance then
-                    local targetPlayer = getClosestPlayerToCursor()
-                    if targetPlayer and targetPlayer.Character then
-                        local targetPart = targetPlayer.Character:FindFirstChild(getgenv().KnifeConfig.HitPart)
-                        if targetPart then
-                            return (targetPart.Position - originPart.Position).Unit
-                        end
-                    end
-                end
-            end
-            return oldGetThrowDirection(self, originPart)
-        end
-    end)
-    if not success then
-        warn("Azerty Hub Engine Core Hook Failure: " .. tostring(err))
-    end
-end)
-
--- ====================================================================
--- FOV INTERACTIVE CANVAS OVERLAY
--- ====================================================================
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 1
-FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-FOVCircle.Filled = false
-FOVCircle.Transparency = 1
-_G.AzertyFOVCircle = FOVCircle
-
-registerConnection(RunService.RenderStepped:Connect(function()
-    FOVCircle.Visible = getgenv().KnifeConfig.Visible and getgenv().KnifeConfig.Enabled
-    FOVCircle.Radius = getgenv().KnifeConfig.FOV
-    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-end))
 
 -- ====================================================================
 -- GENERATED TABS & PREFERENCES
 -- ====================================================================
 
 -- 1. Build Navigation Elements
-local combatTabBtn = createTabBtn("Combat")
 local configTabBtn = createTabBtn("Settings")
 
 -- 2. Build Container Scrolling Canvas Panels
-local combatTab = createTabContent("Combat", "Combat target adjustment systems and optimization filters.")
 local configTab = createTabContent("Settings", "Change client side background settings configuration.")
 
--- 3. Populate Combat Tab Layout Components
-local knifeCard = createCard(combatTab, "Knife Engine Matrix")
-
-createToggle(knifeCard, "Enable Knife Silent Aim", "knifeEnabled", function(val)
-    getgenv().KnifeConfig.Enabled = val
-end)
-
-createSlider(knifeCard, "Target Boundary Field of View", 10, 500, "knifeFOV", function(val)
-    getgenv().KnifeConfig.FOV = val
-end)
-
-createSlider(knifeCard, "Precision Accuracy Probability (%)", 1, 100, "knifeHitChance", function(val)
-    getgenv().KnifeConfig.HitChance = val
-end)
-
-createDropdown(knifeCard, "Target Body Matrix Alignment", {"Head", "HumanoidRootPart", "Torso"}, "knifeHitPart", function(val)
-    getgenv().KnifeConfig.HitPart = val
-end)
-
-createToggle(knifeCard, "Display Vector Radius Overlay", "knifeVisible", function(val)
-    getgenv().KnifeConfig.Visible = val
-end)
-
--- 4. Populate Default Sample Settings Settings Components
-local settingsCard = createCard(configTab, "Interface Configuration")
-createToggle(settingsCard, "Sample Framework Feature Toggle", "sampleToggle", function(val) end)
-
--- Initialize Framework Layout Display Target Focus Window (Defaults to Combat)
-switchTab("Combat", combatTabBtn, combatTabBtn.Indicator, combatTabBtn.Label)
-notify("Azerty Hub", "Interface structures and tracking vectors compiled successfully.")
+-- Initialize Framework Layout Display Target Focus Window (Defaults to Settings)
+switchTab("Settings", configTabBtn, configTabBtn.Indicator, configTabBtn.Label)
+notify("Azerty Hub", "Interface frame compiled successfully.")
